@@ -1,7 +1,8 @@
 Maxscale
 =========
 
-Role for basic installation and configuring of maxscale ( Debian 10).
+Role for basic installation and configuring of maxscale ( Debian 10). This role is inspired by the role of HanXHX: https://github.com/HanXHX/ansible-maxscale
+
 
 Requirements
 ------------
