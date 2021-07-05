@@ -1,0 +1,9 @@
+---
+# defaults file for ansible-role-maxscale
+maxscale_version: 'latest'
+maxsacle_apt_repo: "https://downloads.mariadb.com/MaxScale/{{ maxscale_version }}/{{ ansible_distribution | lower }}"
+maxsacle_apt_repo_distrib: "buster"
+maxsacle_apt_repo_name: "maridb_maxscale_{{ maxscale_version }}"
+apt_url_maxscale_key: 'https://downloads.mariadb.com/MaxScale/MariaDB-MaxScale-GPG-KEY'
+validate_certs: true
+maxscale_threads: 'auto'

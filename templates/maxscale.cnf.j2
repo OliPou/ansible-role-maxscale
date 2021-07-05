@@ -1,0 +1,72 @@
+#
+# {{ ansible_managed }}
+#
+
+[maxscale]
+threads={{ maxscale_threads }}
+{% if maxscale_log_notice is defined %}
+log_notice={{ maxscale_log_notice }}
+{% endif %}
+{% if maxscale_log_info is defined %}
+log_info={{ maxscale_log_info }}
+{% endif %}
+{% if maxscale_log_debug is defined %}
+log_debug={{ maxscale_log_debug }}
+{% endif %}
+{% if maxscale_logdir is defined %}
+logdir={{ maxscale_logdir }}
+{% endif %}
+{% if maxscale_cachedir is defined %}
+cachedir={{ maxscale_cachedir }}
+{% endif %}
+{% if maxscale_piddir is defined %}
+piddir={{ maxscale_piddir }}
+{% endif %}
+
+# Servers
+
+{% for name, config in maxscale_servers.items() %}
+[{{ name }}]
+type=server
+{% for key, value in config.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+
+{% if maxscale_extra_param is defined %}
+{{ maxscale_extra_param }}
+{% endif %}
+
+# Services
+
+{% for name, config in maxscale_services.items() %}
+[{{ name }}-Service]
+type=service
+{% for key, value in config.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+
+# Monitors
+
+{% for name, config in maxscale_monitors.items() %}
+[{{ name }}-Monitor]
+type=monitor
+{% for key, value in config.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+
+# Listeners
+
+{% for name, config in maxscale_listeners.items() %}
+[{{ name }}-Listener]
+type=listener
+{% for key, value in config.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}

@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: Olivier Pouilly
+  namespace: olipou
+  role_name: ansible-role-maxscale
+  description: Install and configure maxscale
+  license: GPLv3
+  min_ansible_version: 2.10
+  platforms:
+    - name: Debian
+      versions:
+        - buster
+  galaxy_tags:
+    - maxscale
