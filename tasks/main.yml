@@ -1,0 +1,37 @@
+---
+# tasks file for ansible-role-maxscale
+- name: Maxscale - Ensure apt key is installed
+  apt_key:
+    url: "{{ apt_url_maxscale_key }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+
+- name: Maxscale - Add maxscale repositories
+  apt_repository:
+    repo: "deb  {{ maxsacle_apt_repo }} {{ maxsacle_apt_repo_distrib }} main "
+    filename: "{{ maxsacle_apt_repo_name }}"
+    state: "{{ maxsacle_apt_repo_state | default('present') }}"
+    update_cache: yes
+    mode: 0644
+  # when: maxsacle_repo_source_list_install
+
+- name: Maxscale - Install maxscale package
+  apt:
+    name: maxscale
+    state: present
+    force_apt_get: yes
+
+- name: Maxscale - Import maxscale configuration
+  template:
+    src: maxscale.cnf.j2
+    dest: /etc/maxscale.cnf
+    group: root
+    owner: root
+    mode: '0644'
+  notify: Restart maxscale
+
+- name: Ensure maxscale is started
+  service:
+    name: maxscale
+    state: "{{ maxscale_service_state }}"
+    enabled: "{{ maxscale_service_enabled }}"

@@ -1,0 +1,178 @@
+#!/bin/sh
+#
+#   Resource Agent for managing maxscale resources.
+#
+#   License:      GNU General Public License (GPL)
+#   (c) 2019 aop-dw
+
+# Initialization:
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+: ${__OCF_ACTION=$1}
+
+CRM_MASTER="${HA_SBIN_DIR}/crm_master -l reboot"
+
+maxscale_usage() {
+  cat <<UEND
+usage: $0 (start|stop|validate-all|meta-data|monitor|promote|demote)
+
+$0 manages a MariaDB Database as an HA resource.
+
+The 'start' operation starts maxscale.
+The 'stop' operation stops maxscale.
+The 'monitor' operation reports whether maxscale seems to be working
+The 'promote' operation makes this maxscale into active mode
+The 'demote' operation makes this maxscale into passive mode
+The 'validate-all' operation reports whether the parameters are valid
+
+UEND
+}
+
+maxscale_meta_data() {
+   cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="maxscale">
+<version>1.0</version>
+<longdesc lang="en">
+Ressource Agent for Mariadb Maxscale
+</longdesc>
+<shortdesc lang="en">Maxscale Ressource Agent</shortdesc>
+<parameters>
+</parameters>
+<actions>
+<action name="start" timeout="20s" />
+<action name="stop" timeout="20s" />
+<action name="status" timeout="5s" />
+<action name="monitor" depth="0" timeout="5s" interval="2s" />
+<action name="monitor" role="Master" depth="0" timeout="5s" interval="1s" />
+<action name="monitor" role="Slave" depth="0" timeout="5s" interval="3s" />
+<action name="promote" timeout="5s" />
+<action name="demote" timeout="5s" />
+<action name="validate-all" timeout="5s" />
+<action name="meta-data" timeout="5s" />
+</actions>
+</resource-agent>
+END
+}
+
+maxscale_validate_all() {
+  check_binary maxscale
+  check_binary maxctrl
+  check_binary systemctl
+  check_binary jq
+  exit $OCF_SUCCESS
+}
+
+maxscale_start() {
+  local rc
+
+  maxscale_monitor
+  rc=$?
+  case "$rc" in
+    $OCF_NOT_RUNNING)
+      ;;
+    $OCF_SUCCESS | $OCF_RUNNING_MASTER)
+      ocf_log debug "Resource is already running"
+      return $rc
+      ;;
+    *)
+      exit $OCF_ERR_GENERIC
+  esac
+
+  systemctl start maxscale.service > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    ocf_log err "Can't start maxscale"
+    return $OCF_ERR_GENERIC
+  fi
+  maxscale_demote
+  $CRM_MASTER -v 5
+  return $OCF_SUCCESS
+}
+
+maxscale_stop() {
+  local rc
+
+  $CRM_MASTER -D
+  maxscale_monitor
+  rc=$?
+  case "$rc" in
+    $OCF_SUCCESS | $OCF_RUNNING_MASTER)
+      ;;
+    $OCF_NOT_RUNNING)
+      ocf_log debug "Resource is already stopped"
+      return $rc
+      ;;
+    *)
+      exit $OCF_ERR_GENERIC
+  esac
+
+  systemctl stop maxscale.service > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    ocf_log err "Can't stop maxscale"
+    return $OCF_ERR_GENERIC
+  fi
+  return $OCF_SUCCESS
+}
+
+maxscale_monitor() {
+  local rc
+  local status_loglevel="err"
+
+  # Set loglevel to info during probe
+  if ocf_is_probe; then
+      status_loglevel="info"
+  fi
+
+  systemctl is-active maxscale.service > /dev/null 2>&1
+  rc=$?
+  case "$rc" in
+    0)
+      passive=$(maxctrl api get maxscale | jq '.data.attributes.parameters.passive')
+      if ocf_is_true $passive; then
+        ocf_log debug "Resource is running in passive mode"
+        return $OCF_SUCCESS
+      else
+        ocf_log debug "Resource is running in active mode"
+        return $OCF_RUNNING_MASTER
+      fi
+      ;;
+    3)
+      ocf_log debug "Resource is not running"
+      # Remove the master preference for this node
+      # crm_master -l reboot -D
+      return $OCF_NOT_RUNNING
+      ;;
+    *)
+      ocf_log err "Resource has failed. Sytemctl return code is $rc"
+      exit $OCF_ERR_GENERIC
+  esac
+
+}
+
+maxscale_promote() {
+  maxctrl alter maxscale passive false || return $OCF_ERR_GENERIC
+  $CRM_MASTER -v 10
+  return $OCF_SUCCESS
+}
+
+maxscale_demote() {
+  maxctrl alter maxscale passive true || return $OCF_ERR_GENERIC
+  $CRM_MASTER -v 5
+  return $OCF_SUCCESS
+}
+
+#
+# main
+#
+case $__OCF_ACTION in
+meta-data)    maxscale_meta_data;;
+start)        maxscale_start;;
+promote)      maxscale_promote;;
+demote)       maxscale_demote;;
+stop)         maxscale_stop;;
+monitor)      maxscale_monitor;;
+validate-all) maxscale_validate;;
+usage|help)   maxscale_usage $OCF_SUCCESS;;
+*)            maxscale_usage $OCF_ERR_UNIMPLEMENTED;;
+esac
